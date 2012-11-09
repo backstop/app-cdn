@@ -1,0 +1,54 @@
+#!/usr/bin/env ruby
+
+require 'json'
+require 'fog'
+
+include Fog::AWS
+
+origin = ARGV[0]
+safeorigin = origin.gsub(/\./, '-')
+saferorigin = origin.gsub(/[.-]/, '')
+credentials = Hash[*File.read(ENV['AWS_CREDENTIAL_FILE']).split(/[=\n]+/)]
+cf = CloudFormation.new(
+	:aws_access_key_id => credentials['AWSAccessKeyId'],
+	:aws_secret_access_key => credentials['AWSSecretKey'],
+).create_stack("FbCdn-#{safeorigin}", options = {
+	'TemplateBody' => {
+		'AWSTemplateFormatVersion' => '2010-09-09',
+		'Description' => "Fundbutter CloudFront distribution for #{origin}.",
+		'Resources' => {
+			"CFDistro#{saferorigin}" => {
+				'Type' => 'AWS::CloudFront::Distribution',
+				'Properties' => {
+					'DistributionConfig' => {
+						'Origins' => [
+							{
+								'Id' => 'FBOrigin',
+								'DomainName' => origin,
+								'CustomOriginConfig' => {
+									'HTTPPort' => '80',
+									'HTTPSPort' => '443',
+									'OriginProtocolPolicy' => 'match-viewer'
+								}
+							}
+						],
+						'DefaultCacheBehavior' => {
+							'TargetOriginId' => 'FBOrigin',
+							'ForwardedValues' => {
+								'QueryString' => 'false'
+							},
+							'ViewerProtocolPolicy' => 'https-only',
+						},
+						'Enabled' => 'true',
+					}
+				}
+			}
+		},
+		'Outputs' => {
+			'CdnDomainName' => {
+				'Value' => { 'Fn::GetAtt' => [ "CFDistro#{saferorigin}", 'DomainName' ] },
+				'Description' => 'Domain name for the CDN'
+			}
+		}
+	}.to_json
+})
