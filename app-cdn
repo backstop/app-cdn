@@ -12,18 +12,18 @@ credentials = Hash[*File.read(ENV['AWS_CREDENTIAL_FILE']).split(/[=\n]+/)]
 cf = CloudFormation.new(
 	:aws_access_key_id => credentials['AWSAccessKeyId'],
 	:aws_secret_access_key => credentials['AWSSecretKey'],
-).create_stack("FbCdn-#{safeorigin}", options = {
+).create_stack("AppCdn-#{safeorigin}", options = {
 	'TemplateBody' => {
 		'AWSTemplateFormatVersion' => '2010-09-09',
-		'Description' => "Fundbutter CloudFront distribution for #{origin}.",
+		'Description' => "HTTPS App Server CloudFront distribution for #{origin}.",
 		'Resources' => {
-			"CFDistro#{saferorigin}" => {
+			"#{saferorigin}Distribution" => {
 				'Type' => 'AWS::CloudFront::Distribution',
 				'Properties' => {
 					'DistributionConfig' => {
 						'Origins' => [
 							{
-								'Id' => 'FBOrigin',
+								'Id' => 'AppServer',
 								'DomainName' => origin,
 								'CustomOriginConfig' => {
 									'HTTPPort' => '80',
@@ -33,7 +33,7 @@ cf = CloudFormation.new(
 							}
 						],
 						'DefaultCacheBehavior' => {
-							'TargetOriginId' => 'FBOrigin',
+							'TargetOriginId' => 'AppServer',
 							'ForwardedValues' => {
 								'QueryString' => 'false'
 							},
@@ -46,7 +46,7 @@ cf = CloudFormation.new(
 		},
 		'Outputs' => {
 			'CdnDomainName' => {
-				'Value' => { 'Fn::GetAtt' => [ "CFDistro#{saferorigin}", 'DomainName' ] },
+				'Value' => { 'Fn::GetAtt' => [ "#{saferorigin}Distribution", 'DomainName' ] },
 				'Description' => 'Domain name for the CDN'
 			}
 		}
